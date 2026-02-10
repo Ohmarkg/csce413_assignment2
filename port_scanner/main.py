@@ -18,11 +18,49 @@ TODO for students:
 """
 
 import socket
-import sys
 import queue
 import threading
 import argparse
 
+def GetBanner(target, port, timeout=0.5):
+    sk = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sk.settimeout(timeout)
+
+    #attempt direct connection
+    try:
+        sk.connect((target, port))
+        bannerData = b''
+        try:
+            bannerData = sk.recv(2000)
+        except:
+           
+            print('\033[91mDirect connection to {target}:{port} failed\033[0m')
+
+        """
+        sample
+        GET / HTTP/1.1
+        Host: 172.20.0.xx
+        """
+
+        if bannerData == b'':
+       
+            print('\033[93mAttempt curlish request\033[0m')
+            try:
+                sk.send(b'GET / HTTP/1.1\r\nHost: ' 
+                + target.encode() + 
+                b'\r\n\r\n'
+                )
+                bannerData = sk.recv(2000)
+            except:
+                print(f'Curl request to {target}:{port} failed')
+            finally:
+                sk.close()
+        text = bannerData.decode('utf-8', errors='ignore').strip()
+        return text
+    except:
+        return "Banner not found"
+    finally:
+        sk.close()
 
 
 def scan_port(target, port, timeout=0.5):
@@ -66,8 +104,12 @@ def threadedScan(target, qPorts,open_ports, timeout):
             try:
                 #print(f"Scanning port {p}-^-^")
                 if scan_port(target, p, timeout):
-                        open_ports.append(p)
-                        print(f"Port {p} opened")
+                        bannerData = GetBanner(target, p, timeout)
+                        open_ports.append((p, bannerData))
+                        # if bannerData != "Banner not found" and bannerData != "":
+                        #     print(f"Port {p} opened with banner: {bannerData}")
+                        # else:
+                        #     print(f"Port {p} opened No banner")
 
             finally:
                 qPorts.task_done()
@@ -123,7 +165,7 @@ def main():
     argumentParsers = argparse.ArgumentParser(description="Basic Port Scanner", 
     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     argumentParsers.add_argument("-target", help="Target IP for scan", required=True)
-    argumentParsers.add_argument("-ports", nargs=2, type=int, default=[1, 1024], help="Port range (start end)", metavar=('START', 'END'))
+    argumentParsers.add_argument("-ports", nargs=2, type=int, default=[1, 1024], help="Port range (start end)", metavar=('START', 'END'), required=True)
     args = argumentParsers.parse_args()
     target = args.target
     start_port = args.ports[0]
@@ -135,8 +177,13 @@ def main():
 
     print(f"\n[+] Scan complete!")
     print(f"[+] Found {len(open_ports)} open ports:")
-    for port in open_ports:
-        print(f"    Port {port}: open")
+    for port,banner in open_ports:
+        if banner != "Banner not found" and banner != "":
+           
+            print(f'\033[92mPort {port}: open with banner: {banner}\033[0m')
+        else:
+   
+            print(f'\033[93mPort {port}: open No banner\033[0m')
 
 
 if __name__ == "__main__":
