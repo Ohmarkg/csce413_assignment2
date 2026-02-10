@@ -19,9 +19,13 @@ TODO for students:
 
 import socket
 import sys
+import queue
+import threading
+import argparse
 
 
-def scan_port(target, port, timeout=1.0):
+
+def scan_port(target, port, timeout=0.5):
     """
     Scan a single port on the target host
 
@@ -35,18 +39,41 @@ def scan_port(target, port, timeout=1.0):
     """
     try:
         # TODO: Create a socket
+        # Af_INET -> IPv4
+        # SOCK_STREAM -> TCP
+        sk = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         # TODO: Set timeout
+        sk.settimeout(timeout)
         # TODO: Try to connect to target:port
+        res = sk.connect((target, port))
         # TODO: Close the socket
         # TODO: Return True if connection successful
-
-        pass  # Remove this and implement
+        return True
+        #pass   Remove this and implement
 
     except (socket.timeout, ConnectionRefusedError, OSError):
         return False
+    finally:
+        sk.close()
+
+def threadedScan(target, qPorts,open_ports, timeout):
+        while True:
+            try:
+                p = qPorts.get_nowait()
+            except queue.Empty:
+                break
+
+            try:
+                #print(f"Scanning port {p}-^-^")
+                if scan_port(target, p, timeout):
+                        open_ports.append(p)
+                        print(f"Port {p} opened")
+
+            finally:
+                qPorts.task_done()
 
 
-def scan_range(target, start_port, end_port):
+def scan_range(target, start_port, end_port , numThreads = 300, timeout = 0.5 ):
     """
     Scan a range of ports on the target host
 
@@ -59,19 +86,27 @@ def scan_range(target, start_port, end_port):
         list: List of open ports
     """
     open_ports = []
-
     print(f"[*] Scanning {target} from port {start_port} to {end_port}")
     print(f"[*] This may take a while...")
 
-    # TODO: Implement the scanning logic
-    # Hint: Loop through port range and call scan_port()
-    # Hint: Consider using threading for better performance
-
+    # TODO: Implement the scanning logica
+    # Hint: Loop through port range and call scan_port() !done
+    # Hint: Consider using threading for better performance !done
+    #     # TODO: Scan this port
+    #     # TODO: If open, add to open_ports list
+    #     # TODO: Print progress (optional)
+    qPorts = queue.Queue()
     for port in range(start_port, end_port + 1):
-        # TODO: Scan this port
-        # TODO: If open, add to open_ports list
-        # TODO: Print progress (optional)
-        pass  # Remove this and implement
+        qPorts.put(port)
+    threadList = []
+    for i in range(numThreads):
+            thread = threading.Thread(target=threadedScan, args=(target, qPorts,open_ports, timeout))
+            thread.start()
+            threadList.append(thread)
+    qPorts.join()
+    for thread in threadList:
+        thread.join()
+
 
     return open_ports
 
@@ -83,15 +118,16 @@ def main():
     # TODO: Call scan_range()
     # TODO: Display results
 
-    # Example usage (you should improve this):
-    if len(sys.argv) < 2:
-        print("Usage: python3 port_scanner_template.py <target>")
-        print("Example: python3 port_scanner_template.py 172.20.0.10")
-        sys.exit(1)
-
-    target = sys.argv[1]
-    start_port = 1
-    end_port = 1024  # Scan first 1024 ports by default
+    
+    #accept iphostname and port range
+    argumentParsers = argparse.ArgumentParser(description="Basic Port Scanner", 
+    formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    argumentParsers.add_argument("-target", help="Target IP for scan", required=True)
+    argumentParsers.add_argument("-ports", nargs=2, type=int, default=[1, 1024], help="Port range (start end)", metavar=('START', 'END'))
+    args = argumentParsers.parse_args()
+    target = args.target
+    start_port = args.ports[0]
+    end_port = args.ports[1]
 
     print(f"[*] Starting port scan on {target}")
 
