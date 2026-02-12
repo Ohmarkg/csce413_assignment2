@@ -102,14 +102,11 @@ def threadedScan(target, qPorts,open_ports, timeout):
                 break
 
             try:
-                #print(f"Scanning port {p}-^-^")
+
                 if scan_port(target, p, timeout):
                         bannerData = GetBanner(target, p, timeout)
                         open_ports.append((p, bannerData))
-                        # if bannerData != "Banner not found" and bannerData != "":
-                        #     print(f"Port {p} opened with banner: {bannerData}")
-                        # else:
-                        #     print(f"Port {p} opened No banner")
+
 
             finally:
                 qPorts.task_done()
@@ -180,7 +177,7 @@ def main():
     for port,banner in open_ports:
         if banner != "Banner not found" and banner != "":
            
-            print(f'\033[92mPort {port}: open with banner: {banner}\033[0m')
+            print(f'\033[92mPort {port}: open with banner: \n{banner}\033[0m')
         else:
    
             print(f'\033[93mPort {port}: open No banner\033[0m')
